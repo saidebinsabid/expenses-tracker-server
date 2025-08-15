@@ -49,15 +49,15 @@ async function run() {
     };
 
     // Route: Logout the user by clearing the access token cookie
-    app.get("/logout", (req, res) => {
-      res
-        .clearCookie("token", {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "Lax",
-        })
-        .json({ message: "Logged out successfully" });
-    });
+app.get("/logout", (req, res) => {
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  }).json({ message: "Logged out successfully" });
+});
+
+
 
     // Route: Generate a new JWT token and send it as an HTTP-only cookie
     app.post("/jwt", (req, res) => {
@@ -158,7 +158,72 @@ async function run() {
       res.status(201).json({ _id: result.insertedId, ...doc });
     });
 
+    //Route: PUT /expenses/:id
+    app.put("/expenses/:id", verifyJWT, async (req, res) => {
+  try {
+    const id = req.params.id;
 
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: "Invalid ID format" });
+    }
+
+    const updateData = { ...req.body };
+    delete updateData._id; // prevent immutable field error
+    updateData.updatedAt = new Date(); // optional timestamp
+
+    const filter = { _id: new ObjectId(id), email: req.user.email };
+
+    const result = await expensesCollection.updateOne(filter, {
+      $set: updateData,
+    });
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+
+    res.send({ success: true, message: "Expense updated successfully" });
+  } catch (err) {
+    console.error("Update Expense Error:", err);
+    res
+      .status(500)
+      .send({ message: "Internal Server Error", error: err.message });
+  }
+});
+
+
+    //Route: DELETE /expenses/:id
+    app.delete("/expenses/:id", verifyJWT, async (req, res) => {
+      const { email } = req.user;
+      const { id } = req.params;
+
+      const result = await expensesCollection.deleteOne({
+        _id: new ObjectId(id),
+        email,
+      });
+      if (result.deletedCount === 0) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      res.json({ message: "Expense deleted" });
+    });
+
+    //Route: GET /expenses/total?category=All|Food|Transport|Shopping|Others
+    app.get("/expenses/total", verifyJWT, async (req, res) => {
+      const { email } = req.user;
+      const { category } = req.query;
+
+      const match = { email };
+      if (category && category !== "All") match.category = category;
+
+      const agg = await expensesCollection
+        .aggregate([
+          { $match: match },
+          { $group: { _id: null, total: { $sum: "$amount" } } },
+        ])
+        .toArray();
+
+      const total = agg[0]?.total || 0;
+      res.json({ total });
+    });
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
