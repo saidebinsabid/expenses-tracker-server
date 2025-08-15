@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const dotenv = require("dotenv");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
@@ -30,6 +30,7 @@ async function run() {
     await client.connect();
     const db = client.db("expenseTracker");
     const usersCollection = db.collection("users");
+    const expensesCollection = db.collection("expenses");
 
     // Middleware: Verify JWT token from cookies to protect private routes
     const verifyJWT = (req, res, next) => {
@@ -42,7 +43,7 @@ async function run() {
         if (err) {
           return res.status(403).send({ message: "forbidden access" });
         }
-        req.decoded = decoded;
+        req.user = decoded; // <— this fixes it
         next();
       });
     };
@@ -108,6 +109,55 @@ async function run() {
         res.status(500).json({ message: "Internal Server Error" });
       }
     });
+
+    //Route: GET /expenses?category=Food|Transport|Shopping|Others|All
+    app.get("/expenses", verifyJWT, async (req, res) => {
+      const { email } = req.user;
+      const { category } = req.query;
+
+      const filter = { email };
+      if (category && category !== "All") {
+        filter.category = category;
+      }
+
+      const list = await expensesCollection
+        .find(filter)
+        .sort({ date: -1 }) // latest first
+        .toArray();
+
+      res.json(list);
+    });
+
+    //Route: POST /expenses
+    app.post("/expenses", verifyJWT, async (req, res) => {
+      const { email } = req.user;
+      const { title, amount, category, date } = req.body || {};
+      if (!title || amount == null || !category || !date) {
+        return res
+          .status(400)
+          .json({ message: "title, amount, category, date are required" });
+      }
+      const numericAmount = Number(amount);
+      if (Number.isNaN(numericAmount) || numericAmount < 0) {
+        return res
+          .status(400)
+          .json({ message: "amount must be a non-negative number" });
+      }
+
+      const doc = {
+        title: String(title).trim(),
+        amount: numericAmount,
+        category,
+        date: new Date(date),
+        email,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const result = await expensesCollection.insertOne(doc);
+      res.status(201).json({ _id: result.insertedId, ...doc });
+    });
+
 
     await client.db("admin").command({ ping: 1 });
     console.log(
