@@ -90,13 +90,12 @@ async function run() {
         expiresIn: "1h",
       });
 
-      res
-        .cookie("accessToken", token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "none",
-        })
-        .send({ success: true });
+      res.cookie("accessToken", token, {
+  httpOnly: true,
+  sameSite: "none",
+  secure: true,
+  maxAge: 60 * 60 * 1000
+});
     });
 
     //Logout
