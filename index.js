@@ -14,7 +14,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://lustrous-llama-8abf6e.netlify.app/auth/login",
+      "https://lustrous-llama-8abf6e.netlify.app",
     ],
     credentials: true,
   })
