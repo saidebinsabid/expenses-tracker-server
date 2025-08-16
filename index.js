@@ -13,8 +13,8 @@ const port = process.env.PORT || 3000;
 app.use(
   cors({
     origin: [
-      "http://localhost:5173", 
-      "https://lustrous-llama-8abf6e.netlify.app"
+      "http://localhost:5173",
+      "https://lustrous-llama-8abf6e.netlify.app",
     ],
     credentials: true,
   })
@@ -93,11 +93,10 @@ async function run() {
       res
         .cookie("accessToken", token, {
           httpOnly: true,
-          sameSite: "lax",
-          secure: false,
-          maxAge: 60 * 60 * 1000,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "none",
         })
-        .json({ success: true, token });
+        .send({ success: true });
     });
 
     //Logout
