@@ -12,10 +12,14 @@ const port = process.env.PORT || 3000;
 // Middlewares
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173", 
+      "https://lustrous-llama-8abf6e.netlify.app"
+    ],
     credentials: true,
   })
 );
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -170,8 +174,6 @@ async function run() {
 
       res.json({ success: true, message: "Deleted" });
     });
-
-    console.log("MongoDB connected successfully");
   } finally {
   }
 }
