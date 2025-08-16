@@ -14,7 +14,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://lustrous-llama-8abf6e.netlify.app",
+      "https://lustrous-llama-8abf6e.netlify.app/auth/login",
     ],
     credentials: true,
   })
@@ -89,13 +89,16 @@ async function run() {
       const token = jwt.sign({ email }, process.env.JWT_SECRET, {
         expiresIn: "1h",
       });
+      const isProduction = process.env.NODE_ENV === "production";
 
-      res.cookie("accessToken", token, {
-  httpOnly: true,
-  sameSite: "none",
-  secure: true,
-  maxAge: 60 * 60 * 1000
-});
+      res
+        .cookie("accessToken", token, {
+          httpOnly: true,
+          sameSite: "none",
+          secure: isProduction,
+          maxAge: 60 * 60 * 1000,
+        })
+        .json({ success: true, token });
     });
 
     //Logout
@@ -103,8 +106,8 @@ async function run() {
       res
         .clearCookie("accessToken", {
           httpOnly: true,
-          sameSite: "lax",
-          secure: false,
+          sameSite: "none",
+          secure: process.env.NODE_ENV === "production",
         })
         .json({ message: "Logged out" });
     });
